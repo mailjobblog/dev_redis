@@ -1,0 +1,105 @@
+# 创建一个网络
+docker network create  --subnet=172.30.0.0/16  netredis
+
+# 查看该网络的信息
+docker network inspect netredis
+--------------------------------
+"Subnet": "172.30.0.0/16"
+--------------------------------
+
+# 查看之前pull的redis镜像
+docker images
+--------------------------------
+REPOSITORY   TAG       IMAGE ID       CREATED       SIZE
+redis        latest    621ceef7494a   3 weeks ago   104MB
+--------------------------------
+
+####################################################################
+########
+######## START 主从复制搭建开始
+########
+####################################################################
+
+# redis.conf 和 sentinel.conf 下载
+下载地址：https://github.com/redis/redis
+
+# 搭建主从
+# 在 /data/redis_group/masterslave 目录复制了3分redis.conf
+--------------------------------
+[root@VM-0-15-centos masterslave]# pwd
+/data/redis_group/masterslave
+[root@VM-0-15-centos masterslave]# ls
+redis1.conf  redis2.conf  redis3.conf
+[root@VM-0-15-centos masterslave]# 
+--------------------------------
+
+# 在 /data/redis_group/ 目录，创建 data1~data3 三个文件夹做数据卷
+
+# 创建redis主从复制节点
+docker run -itd -p 6000:6379 --network netredis --ip 172.30.0.10 -v /data/redis_group/data1:/data -v /data/redis_group/masterslave/redis1.conf:/etc/redis.conf --name redis1 621ceef7494a
+docker run -itd -p 6001:6379 --network netredis --ip 172.30.0.11 -v /data/redis_group/data2:/data -v /data/redis_group/masterslave/redis2.conf:/etc/redis.conf --name redis2 621ceef7494a
+docker run -itd -p 6002:6379 --network netredis --ip 172.30.0.12 -v /data/redis_group/data3:/data -v /data/redis_group/masterslave/redis3.conf:/etc/redis.conf --name redis3 621ceef7494a
+
+# 如果要开启数据持久化，加上这个
+--appendonly yes
+
+# redis主从节点如下
+------------------------------------------------
+名字--------IP--------------端口映射-------角色
+redis1------172.30.0.10-----6000->6379-----mater
+redis2------172.30.0.11-----6001->6379-----slave
+redis3------172.30.0.12-----6002->6379-----slave
+------------------------------------------------
+
+# 最后开始配置主从关系，请查阅博客文章
+### END 主从搭建完成
+
+
+####################################################################
+########
+######## START 哨兵搭建开始
+########
+####################################################################
+
+# 在 /data/redis_group/ 目录，创建 data4~data6 三个文件夹做数据卷
+
+# 创建redis哨兵节点
+docker run -itd -p 26000:26379 --network netredis --ip 172.30.0.20 -v /data/redis_group/data4:/data -v /data/redis_group/sentinel/sentinel-s1.conf:/etc/sentinel.conf --name redis-s1 621ceef7494a
+docker run -itd -p 26001:26379 --network netredis --ip 172.30.0.21 -v /data/redis_group/data5:/data -v /data/redis_group/sentinel/sentinel-s2.conf:/etc/sentinel.conf --name redis-s2 621ceef7494a
+docker run -itd -p 26002:26379 --network netredis --ip 172.30.0.22 -v /data/redis_group/data6:/data -v /data/redis_group/sentinel/sentinel-s3.conf:/etc/sentinel.conf --name redis-s3 621ceef7494a
+
+# 哨兵节点如下
+------------------------------------------
+名字----------IP--------------端口映射----
+redis-s1------172.30.0.20-----26000->26379
+redis-s2------172.30.0.21-----26001->26379
+redis-s3------172.30.0.22-----26002->26379
+------------------------------------------
+
+
+# 哨兵 redis-s1 配置
+# vim /data/redis_group/sentinel/sentinel-s1.conf
+
+daemonize yes
+logfile "/data/log-s1.log"
+sentinel monitor mymaster 172.30.0.10 6379 2
+
+
+哨兵节点的启动有两种方式，二者作用是完全相同的：
+redis-sentinel sentinel.conf
+redis-server sentinel.conf --sentinel
+
+
+# 进入容器后，用26379端口操作哨兵
+redis-cli -p 26379
+
+
+# 看到了 2 个从节点， 3个哨兵
+127.0.0.1:26379> info sentinel
+# Sentinel
+sentinel_masters:1
+sentinel_tilt:0
+sentinel_running_scripts:0
+sentinel_scripts_queue_length:0
+sentinel_simulate_failure_flags:0
+master0:name=mymaster,status=ok,address=172.30.0.12:6379,slaves=2,sentinels=3

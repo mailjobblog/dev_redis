@@ -1,0 +1,15 @@
+{
+    "name": "shineyork/redis-study",
+    "authors": [
+        {
+            "name": "shineyork",
+            "email": "shineyork@sixstaredu.com"
+        }
+    ],
+    "require": {},
+    "autoload":{
+        "psr-4":{
+            "Shineyork\\Redis\\":""
+        }
+    }
+}

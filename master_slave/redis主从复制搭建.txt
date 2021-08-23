@@ -1,0 +1,128 @@
+# 拉取redis镜像
+docker pull redis
+----------------------------
+[root@VM-0-15-centos ~]# docker images
+REPOSITORY    TAG       IMAGE ID       CREATED         SIZE
+ubuntu        18.04     c090eaba6b94   13 days ago     63.3MB
+redis         latest    621ceef7494a   2 weeks ago     104MB
+----------------------------
+
+# 创建父节点redis
+docker run -itd -p 6000:6379 --name redis-father 621ceef7494a
+
+# 创建子节点 redis1 redis2
+docker run -itd -p 6001:6379 --name redis-son1 621ceef7494a
+docker run -itd -p 6002:6379 --name redis-son2 621ceef7494a
+
+# 查看启动容器
+docker ps
+
+# 进父节点看看去
+docker exec -it 9430b0caf133 /bin/bash
+
+# 查看容器网络信息
+docker inspect 9430b0caf133
+
+# 父节点ip
+>> "IPAddress": "172.17.0.2"
+
+# 看看子节点的ip
+# redis son1 节点 
+>> "IPAddress": "172.17.0.3"
+# redis son2 节点
+>> "IPAddress": "172.17.0.4"
+
+# 所以当前三个节点信息如下
+---------------------------------
+父：172.17.0.3:6000
+子：172.17.0.3:6001
+子：172.17.0.3:6002
+---------------------------------
+
+
+# 进入两个子节点容器，通过客户端命令配置主从
+## 通过redis-master内网ip+端口配置
+>> slaveof 172.17.0.2 6379
+## 通过公网ip+run的端口配置
+>> slaveof 49.233.105.xxx 6000
+
+# 命令窗，查看节点信息
+127.0.0.1:6379> info replication
+
+# 父节点查看
+127.0.0.1:6379> info replication
+# Replication
+role:master
+connected_slaves:2
+slave0:ip=49.233.105.xxx,port=6379,state=online,offset=1762,lag=0	# 从节点1
+slave1:ip=172.17.0.4,port=6379,state=online,offset=1762,lag=1		# 从节点2
+master_replid:d70a67dbcd5f8d4cc0ec94364271794a467e8957
+master_replid2:0000000000000000000000000000000000000000
+master_repl_offset:1762
+second_repl_offset:-1
+repl_backlog_active:1
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:1
+repl_backlog_histlen:1762
+
+# 子节点查看
+127.0.0.1:6379> info replication
+# Replication
+role:slave
+master_host:172.17.0.2
+master_port:6379
+master_link_status:up
+master_last_io_seconds_ago:1
+master_sync_in_progress:0
+slave_repl_offset:1818
+slave_priority:100
+slave_read_only:1
+connected_slaves:0
+master_replid:d70a67dbcd5f8d4cc0ec94364271794a467e8957
+master_replid2:0000000000000000000000000000000000000000
+master_repl_offset:1818
+second_repl_offset:-1
+repl_backlog_active:1
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:741
+repl_backlog_histlen:1078
+
+# 查看容器日志 docker logs redis-son1
+1:M 03 Feb 2021 14:35:16.818 * Ready to accept connections
+1:S 03 Feb 2021 14:51:18.055 * Before turning into a replica, using my own master parameters to synthesize a cached master: I may be able to synchronize with the new master with just a partial transfer.
+1:S 03 Feb 2021 14:51:18.055 * REPLICAOF 172.17.0.2:6379 enabled (user request from 'id=4 addr=127.0.0.1:42226 fd=8 name= age=18 idle=1 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=44 qbuf-free=32724 argv-mem=21 obl=0 oll=0 omem=0 tot-mem=61485 events=r cmd=slaveof user=default')
+1:S 03 Feb 2021 14:51:18.942 * Connecting to MASTER 172.17.0.2:6379
+1:S 03 Feb 2021 14:51:18.942 * MASTER <-> REPLICA sync started
+1:S 03 Feb 2021 14:51:18.942 * Non blocking connect for SYNC fired the event.
+1:S 03 Feb 2021 14:51:18.942 * Master replied to PING, replication can continue...
+1:S 03 Feb 2021 14:51:18.942 * Trying a partial resynchronization (request 576cafb79ad03b75bdc16259faa998f93e4baff2:1).
+1:S 03 Feb 2021 14:51:18.943 * Full resync from master: d70a67dbcd5f8d4cc0ec94364271794a467e8957:7871
+1:S 03 Feb 2021 14:51:18.943 * Discarding previously cached master state.
+1:S 03 Feb 2021 14:51:19.064 * MASTER <-> REPLICA sync: receiving 219 bytes from master to disk
+1:S 03 Feb 2021 14:51:19.064 * MASTER <-> REPLICA sync: Flushing old data
+1:S 03 Feb 2021 14:51:19.064 * MASTER <-> REPLICA sync: Loading DB in memory
+1:S 03 Feb 2021 14:51:19.098 * Loading RDB produced by version 6.0.10
+1:S 03 Feb 2021 14:51:19.098 * RDB age 1 seconds
+1:S 03 Feb 2021 14:51:19.098 * RDB memory usage when created 1.87 Mb
+1:S 03 Feb 2021 14:51:19.098 * MASTER <-> REPLICA sync: Finished with success
+
+
+# 遇到的问题
+1、用容器ip+run端口配置失败
+配置的时候，用 slaveof 172.17.0.2 6000 的 6000 端口配置的，结果失败。
+看来是我对 docker 网络这一块理解的不够深刻，刚刚开始觉得应该容器需要通过外面的那一层壳通信，结果内部可以直接通信
+看了一下docker文档
+https://docker_practice.gitee.io/zh-cn/advanced_network/
+发现容器的网络都是关在docker0这个网桥上面
+外部通信需要 端口映射到内部，内部通信直接基于 docker0 进行通信，不需要外部映射这个步骤了
+
+2、容器进去后找不到 redis.conf 文件
+进入容器后，在 /etc 目录找了大半天没找到 redis.conf 配置文件，redis-cli 却可以正常使用
+因为redis容器里边的配置文件是需要在创建容器时映射进来的
+-v /usr/local/redis/redis.conf:/etc/redis.conf  # 映射配置文件
+-v /root/usr/local/redis/data:/data  # 映射数据目录
+说明：
+容器里面的 /data 是redis产品的文件存放地址，例如 rdb 、aof 持久化文件
+
+3、上面做的时候，我图方便也没做数据卷的映射，实际过程中，中了减小容器的冗余，务必要做数据卷的映射哦
+docker run -itd -p 6003:6379 -v /root/usr/local/redis/data:/data --name redis-son3 621ceef7494a

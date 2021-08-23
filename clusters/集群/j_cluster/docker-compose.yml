@@ -1,0 +1,129 @@
+version: "3.6"
+services: 
+  cluster1: # 服务器名称。注意：不是容器名称
+    image: redis:6.0.10 # 镜像文件
+    container_name: redis-c1 # 容器名称
+    networks:
+      net-rediscluster:
+        ipv4_address: 172.31.0.11
+    ports:
+      - "6301:6379" # 客户端连接端口
+      - "16301:16379" # 节点通信端口
+    volumes: # 数据卷
+      - /data/j_cluster/11:/redis # redis数据文件+配置文件
+    working_dir: /redis # 指定容器中的工作目录
+    command: ["/usr/local/bin/redis-server","/redis/conf/redis.conf"] # 容器启动默认命令
+    restart: always # 跟随启动
+    #environment: # 设置环境变量
+    #  - PORT=6391
+    #stdin_open: true # 打开标准输入
+    #tty: true #模拟一个伪终端
+    #privileged: true #允许容器中运行一些特权命令
+    #entrypoint:
+      #- /bin/bash
+  cluster2:
+    image: redis:6.0.10
+    container_name: redis-c2
+    networks:
+      net-rediscluster:
+        ipv4_address: 172.31.0.12
+    ports:
+      - "6302:6379"
+      - "16302:16379"
+    volumes:
+      - /data/j_cluster/12:/redis
+    working_dir: /redis
+    command: ["/usr/local/bin/redis-server","/redis/conf/redis.conf"]
+    restart: always
+  cluster3:
+    image: redis:6.0.10
+    container_name: redis-c3
+    networks:
+      net-rediscluster:
+        ipv4_address: 172.31.0.13
+    ports:
+      - "6303:6379"
+      - "16303:16379"
+    volumes:
+      - /data/j_cluster/13:/redis
+    working_dir: /redis
+    command: ["/usr/local/bin/redis-server","/redis/conf/redis.conf"]
+    restart: always
+  cluster4:
+    image: redis:6.0.10
+    container_name: redis-c4
+    networks:
+      net-rediscluster:
+        ipv4_address: 172.31.0.14
+    ports:
+      - "6304:6379"
+      - "16304:16379"
+    volumes:
+      - /data/j_cluster/14:/redis
+    working_dir: /redis
+    command: ["/usr/local/bin/redis-server","/redis/conf/redis.conf"]
+    restart: always
+  cluster5:
+    image: redis:6.0.10
+    container_name: redis-c5
+    networks:
+      net-rediscluster:
+        ipv4_address: 172.31.0.15
+    ports:
+      - "6305:6379"
+      - "16305:16379"
+    volumes:
+      - /data/j_cluster/15:/redis
+    working_dir: /redis
+    command: ["/usr/local/bin/redis-server","/redis/conf/redis.conf"]
+    restart: always
+  cluster6:
+    image: redis:6.0.10
+    container_name: redis-c6
+    networks:
+      net-rediscluster:
+        ipv4_address: 172.31.0.16
+    ports:
+      - "6306:6379"
+      - "16306:16379"
+    volumes:
+      - /data/j_cluster/16:/redis
+    working_dir: /redis
+    command: ["/usr/local/bin/redis-server","/redis/conf/redis.conf"]
+    restart: always
+  cluster7:
+    image: redis:6.0.10
+    container_name: redis-c7
+    networks:
+      net-rediscluster:
+        ipv4_address: 172.31.0.17
+    ports:
+      - "6307:6379"
+      - "16307:16379"
+    volumes:
+      - /data/j_cluster/17:/redis
+    working_dir: /redis
+    command: ["/usr/local/bin/redis-server","/redis/conf/redis.conf"]
+    restart: always
+  cluster8:
+    image: redis:6.0.10
+    container_name: redis-c8
+    networks:
+      net-rediscluster:
+        ipv4_address: 172.31.0.18
+    ports:
+      - "6308:6379"
+      - "16308:16379"
+    volumes:
+      - /data/j_cluster/18:/redis
+    working_dir: /redis
+    command: ["/usr/local/bin/redis-server","/redis/conf/redis.conf"]
+    restart: always
+networks:
+  net-rediscluster:
+     driver: bridge # 网络后端的驱动，默认为 bridge
+     ipam: # 所有主机共享同一个 subnet，容器启动时会顺序分配 IP
+       driver: default
+       config:
+          -
+           subnet: 172.31.0.0/16
