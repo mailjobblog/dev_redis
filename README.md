@@ -1,5 +1,4 @@
-# dev_redis
-redis 测试代码
+# Redis测试代码
 
 ## lua
 
